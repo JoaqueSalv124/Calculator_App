@@ -50,6 +50,12 @@ class MainActivity : AppCompatActivity() {
         historySpinner = findViewById(R.id.history_spinner)  // Spinner for history dropdown
 
 
+        val clearHistoryButton: Button = findViewById(R.id.button_clear_history)
+        clearHistoryButton.setOnClickListener {
+            clearHistory()
+            outputTextView.text = "History Cleared"
+        }
+
         inputTextView.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
 
@@ -248,7 +254,18 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun clearHistory() {
+        // Clear the history list and preferences
+        historyList.clear()
+        sharedPreferences.edit().remove("history").apply()
 
+        // Update the spinner to reflect the cleared history
+        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, historyList)
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        historySpinner.adapter = adapter
+
+        Log.d("CalculatorApp", "History cleared.")
+    }
 
 
     private fun clearInput() {
