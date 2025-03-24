@@ -3,6 +3,8 @@ package com.calculatorapp
 
 import android.content.SharedPreferences
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.util.Log
 import android.view.View
 import android.widget.AdapterView
@@ -10,6 +12,7 @@ import android.widget.Button
 import android.widget.Spinner
 import android.widget.ArrayAdapter
 import android.widget.TextView
+import android.widget.EditText
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import net.objecthunter.exp4j.ExpressionBuilder
@@ -20,12 +23,12 @@ import org.json.JSONException
 class MainActivity : AppCompatActivity() {
 
 
-    private lateinit var inputTextView: TextView
+    private lateinit var inputTextView: EditText
     private lateinit var outputTextView: TextView
     private var input: String = ""
     private lateinit var sharedPreferences: SharedPreferences
     private lateinit var historySpinner: Spinner
-    private var isUserSelection = true
+
 
     // History list to store operations and results
     private val historyList = mutableListOf<String>()
@@ -46,6 +49,17 @@ class MainActivity : AppCompatActivity() {
         outputTextView = findViewById(R.id.output)
         historySpinner = findViewById(R.id.history_spinner)  // Spinner for history dropdown
 
+
+        inputTextView.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+
+            override fun afterTextChanged(s: Editable?) {
+                // Always move the cursor to the end after text change
+                inputTextView.setSelection(inputTextView.text.length)
+            }
+        })
 
         val buttons = listOf<Button>(
             findViewById(R.id.button0),
@@ -80,37 +94,39 @@ class MainActivity : AppCompatActivity() {
             })
         }
 
+        inputTextView.setShowSoftInputOnFocus(false) // Suppress the keyboard
+
+// Alternatively, use reflection for older Android versions
+        try {
+            val method = TextView::class.java.getMethod("setShowSoftInputOnFocus", Boolean::class.java)
+            method.invoke(inputTextView, false)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
 
         // Load the calculation history when the app starts
         loadHistory()
 
-        historySpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>, view: View, position: Int, id: Long) {
-                if (isUserSelection) {
-                    val selectedHistory = parent.getItemAtPosition(position).toString()
-                    val result = selectedHistory.substringAfter("= ").trim()
-                    val expression = selectedHistory.substringBefore("= ").trim()
-                    input = expression
-                    inputTextView.text = expression
-                    outputTextView.text = result
-                }
-                isUserSelection = true  // Reset after handling
-            }
-
-            override fun onNothingSelected(parent: AdapterView<*>) {
-                // Do nothing
-            }
         }
-    }
 
 
     private fun appendInput(value: String) {
-        if (input == "0" && value != ".") {
-            input = value
-        } else {
-            input += value
-        }
-        inputTextView.text = input
+        val cursorPosition = inputTextView.selectionStart
+
+        // Insert the value at the current cursor position
+        input = input.substring(0, cursorPosition) + value + input.substring(cursorPosition)
+
+        // Update the text and move the cursor to the new position
+        inputTextView.setText(input)
+        inputTextView.setSelection(cursorPosition + value.length)
+    }
+
+
+    private fun updateInputText(text: String) {
+        input = text
+        inputTextView.setText(input)
+        inputTextView.setSelection(input.length)  // Move the cursor to the end
     }
 
 
@@ -118,18 +134,23 @@ class MainActivity : AppCompatActivity() {
         val lastNumber = input.split(" ").last()
         if (!lastNumber.contains(".")) {
             input += "."
-            inputTextView.text = input
+            inputTextView.setText(input)
         }
     }
 
 
 
     private fun handleOperator(op: String) {
-        if (input.isNotEmpty()) {
-            if (input.last().isDigit() || input.last() == ')' || input.last() == '%') {
-                input += " $op "
-                inputTextView.text = input
-            }
+        val cursorPosition = inputTextView.selectionStart
+
+        // Check if the input is not empty and the last character is valid for an operator
+        if (input.isNotEmpty() && (input.last().isDigit() || input.last() == ')' || input.last() == '%')) {
+            // Insert the operator at the current cursor position
+            input = input.substring(0, cursorPosition) + " $op " + input.substring(cursorPosition)
+
+            // Update the text and move the cursor to the new position
+            inputTextView.setText(input)
+            inputTextView.setSelection(cursorPosition + op.length + 2)  // +2 to account for spaces
         }
     }
 
@@ -162,7 +183,7 @@ class MainActivity : AppCompatActivity() {
                 // Show result
                 outputTextView.text = formattedResult
                 input = formattedResult
-                inputTextView.text = input
+                inputTextView.setText(input)
             }
         } catch (e: Exception) {
             outputTextView.text = "Syntax Error"
@@ -214,8 +235,6 @@ class MainActivity : AppCompatActivity() {
 
             Log.d("CalculatorApp", "Loaded History: $historyList")
 
-            // Temporarily disable the listener to avoid triggering it during update
-            isUserSelection = false
 
             // Update the Spinner (dropdown) with the history
             val historyListDisplay = historyList.toList()
@@ -234,7 +253,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun clearInput() {
         input = ""
-        inputTextView.text = ""
+        inputTextView.setText("")
         outputTextView.text = ""
     }
 
@@ -243,7 +262,7 @@ class MainActivity : AppCompatActivity() {
         if (input.isNotEmpty()) {
             if (input.last().isDigit()) {
                 input += "%"
-                inputTextView.text = input
+                inputTextView.setText(input)
             }
         }
     }
@@ -287,7 +306,7 @@ class MainActivity : AppCompatActivity() {
 
             // Reassemble the input and update the TextView
             input = parts.joinToString(" ")
-            inputTextView.text = input
+            inputTextView.setText(input)
         }
     }
 
@@ -318,9 +337,15 @@ class MainActivity : AppCompatActivity() {
 
 
     private fun handleBackspace() {
-        if (input.isNotEmpty()) {
-            input = input.substring(0, input.length - 1)
-            inputTextView.text = input
+        val cursorPosition = inputTextView.selectionStart
+
+        if (cursorPosition > 0) {
+            // Remove the character before the cursor position
+            input = input.removeRange(cursorPosition - 1, cursorPosition)
+            inputTextView.setText(input)
+
+            // Update the cursor position after backspace
+            inputTextView.setSelection(cursorPosition - 1)
         }
     }
 
@@ -334,7 +359,7 @@ class MainActivity : AppCompatActivity() {
                 input += ")"
             }
         }
-        inputTextView.text = input
+        inputTextView.setText(input)
     }
 }
 
