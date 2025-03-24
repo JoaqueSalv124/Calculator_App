@@ -105,13 +105,14 @@ class MainActivity : AppCompatActivity() {
 
 
     private fun appendInput(value: String) {
-        val cursorPos = inputTextView.selectionStart
-        val newText = StringBuilder(input)
-        newText.insert(cursorPos, value)
-        input = newText.toString()
-        inputTextView.setText(input)
-        inputTextView.setSelection(cursorPos + value.length)
+        if (input == "0" && value != ".") {
+            input = value
+        } else {
+            input += value
+        }
+        inputTextView.text = input
     }
+
 
     private fun appendDecimal() {
         val lastNumber = input.split(" ").last()
@@ -317,15 +318,12 @@ class MainActivity : AppCompatActivity() {
 
 
     private fun handleBackspace() {
-        val cursorPos = inputTextView.selectionStart
-        if (cursorPos > 0) {
-            val newText = StringBuilder(input)
-            newText.deleteCharAt(cursorPos - 1)
-            input = newText.toString()
-            inputTextView.setText(input)
-            inputTextView.setSelection(cursorPos - 1)
+        if (input.isNotEmpty()) {
+            input = input.substring(0, input.length - 1)
+            inputTextView.text = input
         }
     }
+
 
 
     private fun handleParenthesis(value: String) {
